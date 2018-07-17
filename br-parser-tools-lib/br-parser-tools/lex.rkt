@@ -287,7 +287,7 @@
     (define match (read-string length lb))
     (define end-pos (get-position lb))
     (raise-read-error
-     (format "lexer: No match found in input starting with: ~a" match)
+     (format "lexer: No match found in input starting with: ~v" match)
      (file-path)
      (position-line first-pos)
      (position-col first-pos)
