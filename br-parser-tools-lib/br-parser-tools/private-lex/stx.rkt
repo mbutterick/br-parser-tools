@@ -134,7 +134,7 @@
     [(list? s-re) (case (car s-re)
                     [(union intersection) (andmap char-set? (cdr s-re))]
                     [(char-range char-complement) #t]
-                    [(repetition) (and (= (cadr s-re) (caddr s-re)) (char-set? (cadddr s-re)))]
+                    [(repetition) (and (= 1 (cadr s-re) (caddr s-re)) (char-set? (cadddr s-re)))]
                     [(concatenation) (and (= 2 (length s-re)) (char-set? (cadr s-re)))]
                     (else #f))]
     [else #f]))
