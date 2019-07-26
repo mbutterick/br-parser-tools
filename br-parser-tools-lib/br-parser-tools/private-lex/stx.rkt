@@ -147,6 +147,7 @@
   (check-equal? (char-set? '(repetition 1 2 #\1)) #f)
   (check-equal? (char-set? '(repetition 1 1 "12")) #f)
   (check-equal? (char-set? '(repetition 1 1 "1")) #t)
+  (check-equal? (char-set? '(repetition 6 6 "1")) #f)
   (check-equal? (char-set? '(union "1" "2" "3")) #t)
   (check-equal? (char-set? '(union "1" "" "3")) #f)
   (check-equal? (char-set? '(intersection "1" "2" (union "3" "4"))) #t)
@@ -182,4 +183,8 @@
   (check-equal? (parse #'(char-range #\1 "1") null) '(char-range #\1 #\1))
   (check-equal? (parse #'(char-range "1" "3") null) '(char-range #\1 #\3))
   (check-equal? (parse #'(char-complement (union "1" "2")) null)
-                '(char-complement (union "1" "2"))))
+                '(char-complement (union "1" "2")))
+  (check-equal? (parse #'(char-complement (repetition 1 1 "1")) null)
+                '(char-complement (repetition 1 1 "1")))
+  (check-exn #rx"not a character set"
+             (λ () (parse #'(char-complement (repetition 6 6 "1")) null))))
