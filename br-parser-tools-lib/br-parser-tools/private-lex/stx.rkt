@@ -1,5 +1,5 @@
 #lang racket/base
-(require "util.rkt" syntax/id-table)
+(require "util.rkt" syntax/id-table racket/syntax)
 (provide parse)
   
 (define (bad-args stx num)
@@ -32,24 +32,21 @@
 ;; parse : syntax-object (box (list-of syntax-object)) -> s-re (see re.rkt)
 ;; checks for errors and generates the plain s-exp form for s
 ;; Expands lex-abbrevs and applies lex-trans.
-(define (parse stx disappeared-uses)
+(define (parse stx)
   (let loop ([stx stx]
-             [disappeared-uses disappeared-uses]
              ;; seen-lex-abbrevs: id-table
              [seen-lex-abbrevs (make-immutable-free-id-table)])
     (let ([recur (λ (s)
                    (loop (syntax-rearm s stx)
-                         disappeared-uses
                          seen-lex-abbrevs))]
           [recur/abbrev (λ (s id)
                           (loop (syntax-rearm s stx)
-                                disappeared-uses
                                 (free-id-table-set seen-lex-abbrevs id id)))])
       (syntax-case (disarm stx) (repetition union intersection complement concatenation
                                             char-range char-complement)
         [_
          (identifier? stx)
-         (let ([expansion (syntax-local-value stx (λ () #f))])
+         (let ([expansion (syntax-local-value/record stx (λ (v) #t))])
            (unless (lex-abbrev? expansion)
              (raise-syntax-error 'regular-expression
                                  "undefined abbreviation"
@@ -61,7 +58,6 @@
                                  stx
                                  #f
                                  (list (free-id-table-ref seen-lex-abbrevs stx))))
-           (set-box! disappeared-uses (cons stx (unbox disappeared-uses)))
            (recur/abbrev ((lex-abbrev-get-abbrev expansion)) stx))]
         [_
          (or (char? (syntax-e stx)) (string? (syntax-e stx)))
@@ -111,8 +107,7 @@
            `(char-complement ,parsed))]
         ((OP form ...)
          (identifier? #'OP)
-         (let* ([expansion (syntax-local-value #'OP (λ () #f))])
-           (set-box! disappeared-uses (cons #'OP (unbox disappeared-uses)))
+         (let* ([expansion (syntax-local-value/record #'OP (λ (v) #t))])
            (cond
              [(lex-trans? expansion)
               (recur ((lex-trans-f expansion) (disarm stx)))]
