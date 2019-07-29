@@ -71,85 +71,78 @@
              [lexeme-srcloc (make-rename-transformer #'lexeme-srcloc-p)])
           action-stx)))))
 
-(begin-for-syntax
-  ; This macro only exists to keep the indentation below the same,
-  ; in order to make the diff easier to read. So it probably makes
-  ; sense to inline it after reading.
-  (define-syntax-rule (begin-with-disappeared-uses body0 body ...)
-    (with-disappeared-uses
-        (let () body0 body ...))))
-
 (define-for-syntax (make-lexer-macro caller src-loc-style)
   (λ (stx)
     (syntax-case stx ()
       [(_ . RE+ACTS)         
-       (begin-with-disappeared-uses
-         (define spec/re-acts (syntax->list #'RE+ACTS))
-         (for/and ([x (in-list spec/re-acts)])
-                  (syntax-case x ()
-                    [(RE ACT) #t]
-                    [else (raise-syntax-error caller "not a regular expression / action pair" stx x)]))
-         (define eof-act (get-special-action spec/re-acts #'eof (case src-loc-style
-                                                                  [(lexer-src-pos) #'(return-without-pos eof)]
-                                                                  [(lexer-srcloc) #'(return-without-srcloc eof)]
-                                                                  [else #'eof])))
-         (define spec-act (get-special-action spec/re-acts #'special #'(void)))
-         (define spec-comment-act (get-special-action spec/re-acts #'special-comment #'#f))
-         (define ids (list #'special #'special-comment #'eof))
-         (define re-acts (filter (λ (spec/re-act)
-                                   (syntax-case spec/re-act ()
-                                     [((special) act)
-                                      (not (ormap
-                                            (λ (x)
-                                              (and (identifier? #'special)
-                                                   (module-or-top-identifier=? #'special x)))
-                                            ids))]
-                                     [_ #t])) spec/re-acts))
-         (define names (map (λ (x) (datum->syntax #f (gensym))) re-acts))
-         (define acts (map (λ (x) (stx-car (stx-cdr x))) re-acts))
-         (define re-actnames (map (λ (re-act name) (list (stx-car re-act) name)) re-acts names))
-         (when (null? spec/re-acts)
-           (raise-syntax-error caller "expected at least one action" stx))
-         (define-values (trans start action-names no-look) (build-lexer re-actnames))
-         (when (vector-ref action-names start) ;; Start state is final
-           (unless (and 
-                    ;; All the successor states are final
-                    (vector? (vector-ref trans start))
-                    (andmap (λ (x) (vector-ref action-names (vector-ref x 2)))
-                            (vector->list (vector-ref trans start)))
-                    ;; Each character has a successor state
-                    (let loop ([check 0]
-                               [nexts (vector->list (vector-ref trans start))])
-                      (cond
-                        [(null? nexts) #f]
-                        [else
-                         (let ([next (car nexts)])
-                           (and (= (vector-ref next 0) check)
-                                (let ([next-check (vector-ref next 1)])
-                                  (or (>= next-check max-char-num)
-                                      (loop (add1 next-check) (cdr nexts))))))])))
-             (eprintf "warning: lexer at ~a can accept the empty string\n" stx)))
-         (with-syntax ([START-STATE-STX start]
-                       [TRANS-TABLE-STX trans]
-                       [NO-LOOKAHEAD-STX no-look]
-                       [(NAME ...) names]
-                       [(ACT ...) (map (λ (a) (wrap-action a src-loc-style)) acts)]
-                       [(ACT-NAME ...) (vector->list action-names)]
-                       [SPEC-ACT-STX (wrap-action spec-act src-loc-style)]
-                       [HAS-COMMENT-ACT?-STX (if (syntax-e spec-comment-act) #t #f)]
-                       [SPEC-COMMENT-ACT-STX (wrap-action spec-comment-act src-loc-style)]
-                       [EOF-ACT-STX (wrap-action eof-act src-loc-style)])
-           (syntax/loc stx (let ([NAME ACT] ...)
-                             (let ([proc (lexer-body START-STATE-STX 
-                                                     TRANS-TABLE-STX
-                                                     (vector ACT-NAME ...)
-                                                     NO-LOOKAHEAD-STX
-                                                     SPEC-ACT-STX
-                                                     HAS-COMMENT-ACT?-STX
-                                                     SPEC-COMMENT-ACT-STX
-                                                     EOF-ACT-STX)])
-                               ;; reverse eta to get named procedures:
-                               (λ (port) (proc port)))))))])))
+       (with-disappeared-uses
+           (let ()
+             (define spec/re-acts (syntax->list #'RE+ACTS))
+             (for/and ([x (in-list spec/re-acts)])
+               (syntax-case x ()
+                 [(RE ACT) #t]
+                 [else (raise-syntax-error caller "not a regular expression / action pair" stx x)]))
+             (define eof-act (get-special-action spec/re-acts #'eof (case src-loc-style
+                                                                      [(lexer-src-pos) #'(return-without-pos eof)]
+                                                                      [(lexer-srcloc) #'(return-without-srcloc eof)]
+                                                                      [else #'eof])))
+             (define spec-act (get-special-action spec/re-acts #'special #'(void)))
+             (define spec-comment-act (get-special-action spec/re-acts #'special-comment #'#f))
+             (define ids (list #'special #'special-comment #'eof))
+             (define re-acts (filter (λ (spec/re-act)
+                                       (syntax-case spec/re-act ()
+                                         [((special) act)
+                                          (not (ormap
+                                                (λ (x)
+                                                  (and (identifier? #'special)
+                                                       (module-or-top-identifier=? #'special x)))
+                                                ids))]
+                                         [_ #t])) spec/re-acts))
+             (define names (map (λ (x) (datum->syntax #f (gensym))) re-acts))
+             (define acts (map (λ (x) (stx-car (stx-cdr x))) re-acts))
+             (define re-actnames (map (λ (re-act name) (list (stx-car re-act) name)) re-acts names))
+             (when (null? spec/re-acts)
+               (raise-syntax-error caller "expected at least one action" stx))
+             (define-values (trans start action-names no-look) (build-lexer re-actnames))
+             (when (vector-ref action-names start) ;; Start state is final
+               (unless (and 
+                        ;; All the successor states are final
+                        (vector? (vector-ref trans start))
+                        (andmap (λ (x) (vector-ref action-names (vector-ref x 2)))
+                                (vector->list (vector-ref trans start)))
+                        ;; Each character has a successor state
+                        (let loop ([check 0]
+                                   [nexts (vector->list (vector-ref trans start))])
+                          (cond
+                            [(null? nexts) #f]
+                            [else
+                             (let ([next (car nexts)])
+                               (and (= (vector-ref next 0) check)
+                                    (let ([next-check (vector-ref next 1)])
+                                      (or (>= next-check max-char-num)
+                                          (loop (add1 next-check) (cdr nexts))))))])))
+                 (eprintf "warning: lexer at ~a can accept the empty string\n" stx)))
+             (with-syntax ([START-STATE-STX start]
+                           [TRANS-TABLE-STX trans]
+                           [NO-LOOKAHEAD-STX no-look]
+                           [(NAME ...) names]
+                           [(ACT ...) (map (λ (a) (wrap-action a src-loc-style)) acts)]
+                           [(ACT-NAME ...) (vector->list action-names)]
+                           [SPEC-ACT-STX (wrap-action spec-act src-loc-style)]
+                           [HAS-COMMENT-ACT?-STX (if (syntax-e spec-comment-act) #t #f)]
+                           [SPEC-COMMENT-ACT-STX (wrap-action spec-comment-act src-loc-style)]
+                           [EOF-ACT-STX (wrap-action eof-act src-loc-style)])
+               (syntax/loc stx (let ([NAME ACT] ...)
+                                 (let ([proc (lexer-body START-STATE-STX 
+                                                         TRANS-TABLE-STX
+                                                         (vector ACT-NAME ...)
+                                                         NO-LOOKAHEAD-STX
+                                                         SPEC-ACT-STX
+                                                         HAS-COMMENT-ACT?-STX
+                                                         SPEC-COMMENT-ACT-STX
+                                                         EOF-ACT-STX)])
+                                   ;; reverse eta to get named procedures:
+                                   (λ (port) (proc port))))))))])))
 
 (define-syntax lexer (make-lexer-macro 'lexer #f))
 (define-syntax lexer-src-pos (make-lexer-macro 'lexer-src-pos 'lexer-src-pos))
