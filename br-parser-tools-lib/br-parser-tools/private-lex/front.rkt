@@ -125,9 +125,8 @@
 ;;   (values table nat (vector-of (union #f syntax-object)) (vector-of bool) (list-of syntax-object))
 ;; each syntax object has the form (re action)
 (define (build-lexer sos)
-  (define disappeared-uses (box null))
   (define s-re-acts (for/list ([so (in-list sos)])
-                              (cons (parse (stx-car so) disappeared-uses)
+                              (cons (parse (stx-car so))
                                     (stx-car (stx-cdr so)))))
   (define cache (make-cache))
   (define re-acts (for/list ([s-re-act (in-list s-re-acts)])
@@ -156,6 +155,5 @@
               num-states
               (/ (* 4.0 (+ 2 num-states (* 2 num-vectors) num-entries
                            (* 5 num-different-entries))) 1024)))
-  (values table (dfa-start-state dfa) (dfa->actions dfa) (dfa->no-look dfa)
-          (unbox disappeared-uses)))
+  (values table (dfa-start-state dfa) (dfa->actions dfa) (dfa->no-look dfa)))
  

@@ -4,6 +4,7 @@
 ;; create and use the buffer that the lexer reads from.  See docs.
 
 (require (for-syntax racket/list
+                     racket/syntax
                      syntax/stx
                      syntax/define
                      syntax/boundmap
@@ -69,12 +70,20 @@
              [input-port (make-rename-transformer #'input-port-p)]
              [lexeme-srcloc (make-rename-transformer #'lexeme-srcloc-p)])
           action-stx)))))
-        
+
+(begin-for-syntax
+  ; This macro only exists to keep the indentation below the same,
+  ; in order to make the diff easier to read. So it probably makes
+  ; sense to inline it after reading.
+  (define-syntax-rule (begin-with-disappeared-uses body0 body ...)
+    (with-disappeared-uses
+        (let () body0 body ...))))
+
 (define-for-syntax (make-lexer-macro caller src-loc-style)
   (λ (stx)
     (syntax-case stx ()
       [(_ . RE+ACTS)         
-       (let ()
+       (begin-with-disappeared-uses
          (define spec/re-acts (syntax->list #'RE+ACTS))
          (for/and ([x (in-list spec/re-acts)])
                   (syntax-case x ()
@@ -101,7 +110,7 @@
          (define re-actnames (map (λ (re-act name) (list (stx-car re-act) name)) re-acts names))
          (when (null? spec/re-acts)
            (raise-syntax-error caller "expected at least one action" stx))
-         (define-values (trans start action-names no-look disappeared-uses) (build-lexer re-actnames))
+         (define-values (trans start action-names no-look) (build-lexer re-actnames))
          (when (vector-ref action-names start) ;; Start state is final
            (unless (and 
                     ;; All the successor states are final
@@ -130,19 +139,17 @@
                        [HAS-COMMENT-ACT?-STX (if (syntax-e spec-comment-act) #t #f)]
                        [SPEC-COMMENT-ACT-STX (wrap-action spec-comment-act src-loc-style)]
                        [EOF-ACT-STX (wrap-action eof-act src-loc-style)])
-           (syntax-property
-            (syntax/loc stx (let ([NAME ACT] ...)
-                              (let ([proc (lexer-body START-STATE-STX 
-                                                      TRANS-TABLE-STX
-                                                      (vector ACT-NAME ...)
-                                                      NO-LOOKAHEAD-STX
-                                                      SPEC-ACT-STX
-                                                      HAS-COMMENT-ACT?-STX
-                                                      SPEC-COMMENT-ACT-STX
-                                                      EOF-ACT-STX)])
-                                ;; reverse eta to get named procedures:
-                                (λ (port) (proc port)))))
-            'disappeared-use disappeared-uses)))])))
+           (syntax/loc stx (let ([NAME ACT] ...)
+                             (let ([proc (lexer-body START-STATE-STX 
+                                                     TRANS-TABLE-STX
+                                                     (vector ACT-NAME ...)
+                                                     NO-LOOKAHEAD-STX
+                                                     SPEC-ACT-STX
+                                                     HAS-COMMENT-ACT?-STX
+                                                     SPEC-COMMENT-ACT-STX
+                                                     EOF-ACT-STX)])
+                               ;; reverse eta to get named procedures:
+                               (λ (port) (proc port)))))))])))
 
 (define-syntax lexer (make-lexer-macro 'lexer #f))
 (define-syntax lexer-src-pos (make-lexer-macro 'lexer-src-pos 'lexer-src-pos))
