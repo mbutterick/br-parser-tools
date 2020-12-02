@@ -1,2 +1,2 @@
-# br-parser-tools [![Build Status](https://travis-ci.org/mbutterick/br-parser-tools.svg?branch=master)](https://travis-ci.org/mbutterick/br-parser-tools)
+# br-parser-tools ![Build Status](https://github.com/mbutterick/br-parser-tools/workflows/CI/badge.svg)
 
